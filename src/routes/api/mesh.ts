@@ -1,12 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { handleMeshRequest } from '@/server/mesh';
+import { json, preflight } from '@/server/api';
 
 export const Route = createFileRoute('/api/mesh')({
   server: {
     handlers: {
-      GET: ({ request }) => handleMeshRequest(request),
-      POST: ({ request }) => handleMeshRequest(request),
-      OPTIONS: ({ request }) => handleMeshRequest(request),
+      GET: () => json({ error: 'Hosted mesh models are unavailable' }, 410),
+      POST: () => json({ error: 'Hosted mesh models are unavailable' }, 410),
+      OPTIONS: preflight,
     },
   },
 });

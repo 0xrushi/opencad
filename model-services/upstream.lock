@@ -1,0 +1,5 @@
+# Git checkouts under alpha@192.168.1.174:~/Documents/CADAM-models/upstream
+CAD-Coder 7f40b4827b029731ef97313a116d62519e313960 https://github.com/anniedoris/CAD-Coder.git
+CADFusion 5bef5bb632b66ede9ca3d438b68adca0460e27f9 https://github.com/microsoft/CADFusion.git
+CAD-Editor 3363b99eb5d2c833c3fe963754f94c30cf341f92 https://github.com/microsoft/CAD-Editor.git
+CAD-Tokenizer 3a37dec2b29858b016afaf030945bf3bb8b6782c https://github.com/rwang37/CAD-Tokenizer.git

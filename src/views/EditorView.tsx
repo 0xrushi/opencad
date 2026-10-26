@@ -52,6 +52,7 @@ import { Loader2, Share } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MessageItem } from '../types/misc.ts';
 import { ConversationView } from './ConversationView';
+import LocalCadEditor from './LocalCadEditor';
 
 /**
  * Route-level entry for `/editor/$id`.
@@ -158,7 +159,11 @@ export default function EditorView() {
             preview, parameter values, model selector, dxf exporter, etc.)
             reinitialises naturally instead of needing a manual reset
             effect that would race with `ChatSession`'s auto-switch. */}
-        <ConversationEditor key={conversation.id} />
+        {conversation.type === 'parametric' ? (
+          <LocalCadEditor key={conversation.id} />
+        ) : (
+          <ConversationEditor key={conversation.id} />
+        )}
       </SelectedItemsContext.Provider>
     </ConversationContext.Provider>
   );
@@ -194,7 +199,7 @@ function ConversationEditor() {
       ? normalizeModelId(conversation.settings.model)
       : conversation.type === 'creative'
         ? 'quality'
-        : 'google/gemini-3.8-flash',
+        : 'microsoft/CADFusion',
   );
   const [activePreview, setActivePreview] = useState<ActivePreview>(null);
   const [parameters, setParameters] = useState<Parameter[]>([]);

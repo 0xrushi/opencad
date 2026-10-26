@@ -1,12 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { handleAiChatRequest } from '@/server/aiChat';
+import { json, preflight } from '@/server/api';
 
 export const Route = createFileRoute('/api/parametric-chat')({
   server: {
     handlers: {
-      GET: ({ request }) => handleAiChatRequest(request),
-      POST: ({ request }) => handleAiChatRequest(request),
-      OPTIONS: ({ request }) => handleAiChatRequest(request),
+      GET: () => json({ error: 'Use /api/local-cad' }, 410),
+      POST: () => json({ error: 'Use /api/local-cad' }, 410),
+      OPTIONS: preflight,
     },
   },
 });

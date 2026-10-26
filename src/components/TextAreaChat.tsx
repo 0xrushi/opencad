@@ -78,6 +78,7 @@ interface TextAreaChatProps {
   model: Model;
   setModel: (model: Model) => void;
   showPromptGenerator?: boolean;
+  hideModelSelector?: boolean;
   showFullLabels?: boolean; // Controls whether to show full text labels on buttons
   onTypeChange?: (type: 'parametric' | 'creative') => void;
   conversation: {
@@ -470,6 +471,7 @@ function TextAreaChat({
   model,
   setModel,
   showPromptGenerator = false,
+  hideModelSelector = false,
   showFullLabels = false,
   onTypeChange,
   conversation,
@@ -1593,7 +1595,7 @@ function TextAreaChat({
         </div>
         <div className="flex items-center justify-between border-t border-[#2a2a2a] p-3">
           <div className="flex items-center gap-1">
-            {(type !== 'parametric' ||
+            {(type === 'parametric' ||
               parametricModelSupportsVision(model)) && (
               <div
                 className={cn(
@@ -1685,14 +1687,16 @@ function TextAreaChat({
           </div>
 
           <div className="flex items-center gap-2">
-            <ModelSelector
-              disabled={isLoading || disabled}
-              models={memoizedModels}
-              selectedModel={model}
-              onModelChange={setModel}
-              type={type}
-              focused={isFocused}
-            />
+            {!hideModelSelector && (
+              <ModelSelector
+                disabled={isLoading || disabled}
+                models={memoizedModels}
+                selectedModel={model}
+                onModelChange={setModel}
+                type={type}
+                focused={isFocused}
+              />
+            )}
             {/* Enhanced submit button */}
             {isLoading && stopGenerating ? (
               <Tooltip>

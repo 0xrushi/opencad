@@ -1,12 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { preflight } from '@/server/api';
-import { handleFalWebhookRequest } from '@/server/falWebhook';
+import { json, preflight } from '@/server/api';
 
 export const Route = createFileRoute('/api/fal-webhook')({
   server: {
     handlers: {
-      POST: ({ request }) => handleFalWebhookRequest(request),
-      GET: () => new Response('ok', { status: 200 }),
+      POST: () => json({ error: 'Hosted mesh models are unavailable' }, 410),
+      GET: () => json({ error: 'Hosted mesh models are unavailable' }, 410),
       OPTIONS: preflight,
     },
   },

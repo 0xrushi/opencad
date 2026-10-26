@@ -1,5 +1,5 @@
 import { useNavigate, Link } from '@tanstack/react-router';
-import { LogIn } from 'lucide-react';
+import { FileUp, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,7 +7,7 @@ import { supabase, ssoProvider } from '@/lib/supabase';
 import { signInWithSsoProvider } from '@/lib/ssoAuth';
 import TextAreaChat from '@/components/TextAreaChat';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Model } from '@shared/types';
 import { MessageItem } from '../types/misc.ts';
 import { LimitReachedMessage } from '@/components/LimitReachedMessage';
@@ -49,19 +49,9 @@ export function PromptView() {
     return source.trim().split(/\s+/)[0] || '';
   }, [profile?.full_name, user, isProfileLoading]);
 
-  const [type, setType] = useState<'parametric' | 'creative'>('parametric');
+  const [type] = useState<'parametric' | 'creative'>('parametric');
 
-  const [model, setModel] = useState<Model>('google/gemini-3.8-flash');
-
-  const handleTypeChange = (newType: 'parametric' | 'creative') => {
-    setType(newType);
-    // Reset model to the default for the new type
-    if (newType === 'creative') {
-      setModel('quality');
-    } else {
-      setModel('google/gemini-3.8-flash');
-    }
-  };
+  const [model, setModel] = useState<Model>('microsoft/CADFusion');
 
   const [isLoaded, setIsLoaded] = useState(false);
   const isMobile = useIsMobile();
@@ -72,15 +62,9 @@ export function PromptView() {
     crypto.randomUUID(),
   );
 
-  const lowPrompts = useMemo(() => {
-    if (isLoading) return false;
-    return totalTokens > 0 && totalTokens <= 10;
-  }, [totalTokens, isLoading]);
-
-  const limitReached = useMemo(() => {
-    if (isLoading) return false;
-    return totalTokens <= 0;
-  }, [totalTokens, isLoading]);
+  // Self-hosted CAD inference is not metered, so token balances never gate requests.
+  const lowPrompts = false;
+  const limitReached = false;
 
   // Trigger fade in on mount
   useEffect(() => {
@@ -114,6 +98,58 @@ export function PromptView() {
         title: 'Whoopsies',
         description:
           error instanceof Error ? error.message : 'Something went wrong',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const importInput = useRef<HTMLInputElement>(null);
+  // A STEP/STL file becomes the first version of a new CAD conversation; no
+  // AI model is involved. The server renders it when the editor opens.
+  const { mutate: importFile, isPending: isImporting } = useMutation({
+    mutationFn: async (file: File) => {
+      if (!user?.id) throw new Error('User must be authenticated');
+      const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+      const format =
+        extension === 'stl' ? 'stl' : extension === 'step' || extension === 'stp' ? 'step' : null;
+      if (!format) throw new Error('Choose a .step, .stp or .stl file');
+      if (file.size > 25 * 1024 * 1024) throw new Error('Choose a file under 25 MB');
+      const conversationId = crypto.randomUUID();
+      const path = `${user.id}/${conversationId}/${crypto.randomUUID()}.${format}`;
+      const { error: uploadError } = await supabase.storage
+        .from('meshes')
+        .upload(path, file, { contentType: 'application/octet-stream' });
+      if (uploadError) throw uploadError;
+      const { error: conversationError } = await supabase.from('conversations').insert([
+        {
+          id: conversationId,
+          user_id: user.id,
+          title: 'New Conversation',
+          type: 'parametric',
+          // STEP and STL files are normally in millimetres.
+          settings: { model, mmPerUnit: 1 },
+        },
+      ]);
+      if (conversationError) throw conversationError;
+      await persistUserMessage({
+        conversationId,
+        parts: [
+          { type: 'text', text: `Import ${file.name}` },
+          { type: 'data-cad-import', data: { path, filename: file.name, format } },
+        ],
+        metadata: { model },
+        parentMessageId: null,
+      });
+      return { conversationId };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      navigate({ to: '/editor/$id', params: { id: data.conversationId } });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Import failed',
+        description: error instanceof Error ? error.message : 'Could not import the file',
         variant: 'destructive',
       });
     },
@@ -181,6 +217,10 @@ export function PromptView() {
         metadata: { model },
         parentMessageId: null,
       });
+
+      if (type === 'parametric') {
+        return { conversationId: conversation.id };
+      }
 
       const chat = createAndCacheAiChat({
         id: conversation.id,
@@ -324,11 +364,34 @@ export function PromptView() {
                   disabled={limitReached || isGenerating}
                   model={model}
                   setModel={setModel}
-                  showPromptGenerator={true}
+                  showPromptGenerator={false}
+                  hideModelSelector={true}
                   showFullLabels={true}
-                  onTypeChange={handleTypeChange}
                 />
               </SelectedItemsContext.Provider>
+              <div className="mt-3 flex justify-center">
+                <input
+                  ref={importInput}
+                  type="file"
+                  accept=".step,.stp,.stl"
+                  className="sr-only"
+                  data-testid="import-file"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    if (file) importFile(file);
+                  }}
+                />
+                <Button
+                  variant="light"
+                  className="w-auto"
+                  disabled={!user || isImporting}
+                  onClick={() => importInput.current?.click()}
+                >
+                  <FileUp className="mr-2 h-4 w-4" />
+                  {isImporting ? 'Importing…' : 'Import STEP / STL'}
+                </Button>
+              </div>
               <div className="relative">
                 {isLoading && (
                   <div className="absolute left-0 right-0 top-0">

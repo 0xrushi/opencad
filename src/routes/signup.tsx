@@ -1,14 +1,11 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { SignUpView } from '@/views/SignUpView';
-import { ssoProvider } from '@/lib/supabase';
 
 export const Route = createFileRoute('/signup')({
-  // With an SSO provider configured, root is the app's only auth surface —
-  // the native auth routes bounce straight there without rendering.
+  // Open instance: a guest session is created automatically, so these
+  // routes just bounce to the app.
   beforeLoad: () => {
-    if (ssoProvider) {
-      throw redirect({ to: '/', replace: true });
-    }
+    throw redirect({ to: '/', replace: true });
   },
   component: SignUpView,
 });

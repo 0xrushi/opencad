@@ -95,7 +95,117 @@ export type ConversationSuggestionsUpdate = {
   suggestions: string[];
 };
 
+/** A plane split applied after the model's geometry, in the shape's own units. */
+export type CadCut = {
+  origin: [number, number, number];
+  normal: [number, number, number];
+  /** Which side of the plane survives; `split` keeps both, moved apart. */
+  keep: 'positive' | 'negative' | 'split';
+};
+
+/** A round hole drilled into a planar face, against that face's outward normal. */
+export type CadHole = {
+  origin: [number, number, number];
+  normal: [number, number, number];
+  diameter: number;
+  /** Null drills all the way through. */
+  depth: number | null;
+  /** Counterbore or countersink; the default is a plain round hole. */
+  style?: 'simple' | 'counterbore' | 'countersink';
+  head_diameter?: number;
+  /** Counterbore depth. */
+  head_depth?: number;
+  /** Countersink opening angle in degrees (90 by default). */
+  angle?: number;
+};
+
+type Vec3 = [number, number, number];
+
+/** A 2D outline sketched on a planar face, used by pockets, bosses and text. */
+export type CadProfile = {
+  origin: Vec3;
+  normal: Vec3;
+  profile: 'circle' | 'rect' | 'slot';
+  diameter?: number;
+  /** Rectangle width, or the overall length of a slot. */
+  width?: number;
+  /** Rectangle height, or the width of a slot. */
+  height?: number;
+  /** Degrees about the face normal. */
+  rotation?: number;
+};
+
+/** Operations that repeat. */
+export type CadRepeatable =
+  | ({ type: 'hole' } & CadHole)
+  | ({ type: 'pocket' } & CadProfile & { depth?: number | null })
+  | ({ type: 'boss' } & CadProfile & { depth: number })
+  | { type: 'text'; origin: Vec3; normal: Vec3; text: string; size?: number; distance: number; rotation?: number };
+
+/**
+ * Exact geometry operations applied, in order, after the model's output. Each
+ * is expressed in the frame of the shape produced by the operations before it,
+ * because that is the geometry the user was looking at when selecting.
+ */
+export type CadOp =
+  | ({ type: 'cut' } & CadCut)
+  | ({ type: 'hole' } & CadHole)
+  /** Edges are identified by a point on each, matched to the nearest B-rep edge. */
+  | { type: 'fillet'; points: [number, number, number][]; radius: number }
+  | { type: 'chamfer'; points: [number, number, number][]; distance: number }
+  /** Moves the side of `origin` along `normal` away by `distance` (negative shrinks). */
+  | {
+      type: 'stretch';
+      origin: [number, number, number];
+      normal: [number, number, number];
+      distance: number;
+    }
+  /** Fills the holes whose walls contain these points (one on each selected face or edge). */
+  | { type: 'fill'; points: [number, number, number][] }
+  /** Removes a boss, fillet, chamfer or similar feature at these points. */
+  | { type: 'remove'; points: Vec3[] }
+  /** Deletes the selected faces or edges: fills a cavity, removes a boss or a blend, as the geometry calls for. */
+  | { type: 'delete'; points: Vec3[] }
+  | ({ type: 'pocket' } & CadProfile & { depth?: number | null })
+  | ({ type: 'boss' } & CadProfile & { depth: number })
+  /** Positive `distance` raises the text, negative engraves it. */
+  | { type: 'text'; origin: Vec3; normal: Vec3; text: string; size?: number; distance: number; rotation?: number }
+  /** Hollows the part; `points` pick the faces to leave open. */
+  | { type: 'shell'; thickness: number; points: Vec3[] }
+  /** Moves a planar face along its normal (positive outward). */
+  | { type: 'offset_face'; points: Vec3[]; distance: number }
+  /** A gusset in the corner edge through `origin` along `vector`, between faces with outward normals `normal` and `normal2`. */
+  | { type: 'rib'; origin: Vec3; vector: Vec3; normal: Vec3; normal2: Vec3; thickness: number; size: number }
+  | { type: 'draft'; origin: Vec3; normal: Vec3; angle: number; points: Vec3[] }
+  /** Boolean with another saved version of this conversation, resolved by the server when rendering. */
+  | { type: 'combine'; mode: 'union' | 'subtract' | 'intersect'; versionId: string }
+  | ({ type: 'pattern'; of: CadRepeatable; count: number } & (
+      | { kind: 'linear'; vector: Vec3; distance: number }
+      | { kind: 'circular'; origin: Vec3; normal: Vec3; angle?: number }
+    ))
+  | { type: 'scale'; factor: number; origin: [number, number, number] }
+  | { type: 'translate'; vector: [number, number, number] }
+  | {
+      type: 'mirror';
+      origin: [number, number, number];
+      normal: [number, number, number];
+    };
+
 export type AppDataTypes = {
+  'cad-artifact': {
+    sourceFormat: 'cad-sequence' | 'cadquery' | 'step' | 'stl';
+    /** For `step`/`stl`: `storage:<path in the meshes bucket>` of the uploaded file. */
+    source: string;
+    modelId: string;
+    title: string;
+    version: string;
+    ops?: CadOp[];
+    /** Legacy: cut-only history from before `ops`. */
+    cuts?: CadCut[];
+  };
+  'cad-op': CadOp;
+  /** An uploaded STEP/STL file in the `meshes` bucket, used as the first version. */
+  'cad-import': { path: string; filename: string; format: 'step' | 'stl' };
   'mesh-context': MeshContextData;
   'mesh-preferences': MeshPreferencesData;
   'title-update': ConversationTitleUpdate;

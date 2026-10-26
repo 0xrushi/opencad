@@ -197,11 +197,11 @@ npm run dev
 
 - Add server-side keys to `.env.local`, including:
   ```
-  ANTHROPIC_API_KEY="<Test Anthropic API Key>"
-  OPENROUTER_API_KEY="<Test OpenRouter API Key>"
-  OPENAI_API_KEY="<Test OpenAI API Key>"
-  GOOGLE_API_KEY="<Test Google API Key>"
-  FAL_KEY="<Test FAL API Key>"
+  CAD_FUSION_URL="http://127.0.0.1:18082"
+  CAD_EDITOR_URL="http://127.0.0.1:18083"
+  CAD_CODER_URL="http://127.0.0.1:18081"
+  CAD_RENDER_URL="http://127.0.0.1:18084"
+  CAD_PLANNER_URL="http://127.0.0.1:18085"
   SUPABASE_SERVICE_ROLE_KEY="<Test Service Role Key>"
   BILLING_SERVICE_URL="<Test Billing Service URL>"
   BILLING_SERVICE_KEY="<Test Billing Service Key>"

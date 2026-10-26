@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Menu, Plus, LogOut, Crown, Settings, LayoutGrid } from 'lucide-react';
+import { Menu, Plus, Crown, Settings, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, ssoProvider } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { BILLING_URL } from '@/config/billing';
 import {
   Sheet,
@@ -44,7 +44,7 @@ type SidebarPath = '/' | '/history';
 
 function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const isMobile = useIsMobile();
   const { data: profile } = useProfile();
 
@@ -66,24 +66,6 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
       return data;
     },
   });
-
-  const handleSignOut = async () => {
-    try {
-      if (ssoProvider) {
-        // In SSO mode root is the app's only auth surface, so sign-out lands
-        // there. Navigate BEFORE the session dies: on a guarded route the
-        // AuthGuard would otherwise fire the provider redirect the moment the
-        // session goes away and sign the user straight back in.
-        await navigate({ to: '/' });
-        await signOut();
-        return;
-      }
-      await signOut();
-      navigate({ to: '/signin' });
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
 
   const sidebarNavigate = (path: SidebarPath) => {
     if (isMobile) {
@@ -404,11 +386,6 @@ function DesktopSidebar({ isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
                     </a>
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4 text-adam-text-primary" />
-                  <span className="text-adam-text-primary">Sign out</span>
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

@@ -1,0 +1,107 @@
+name: cadam-models
+
+services:
+  cad-render:
+    build:
+      context: ./cad-render
+      dockerfile: Dockerfile
+    image: cadam/cad-render:arm64
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18084:8000"
+    volumes:
+      - ./upstream/CAD-Editor:/opt/cad-editor:ro
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cad-fusion:
+    profiles: ["gated"]
+    build:
+      context: ./cad-fusion
+      dockerfile: Dockerfile
+    image: cadam/cad-fusion:gb10
+    gpus: all
+    shm_size: 16gb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18082:8000"
+    volumes:
+      - ./hf-cache:/models/hf
+      - ./base:/models/base:ro
+      - ./upstream/CADFusion:/opt/cad-fusion:ro
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 6
+      start_period: 10m
+
+  cad-editor:
+    profiles: ["gated"]
+    build:
+      context: ./cad-editor
+      dockerfile: Dockerfile
+    image: cadam/cad-editor:gb10
+    gpus: all
+    shm_size: 16gb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18083:8000"
+    volumes:
+      - ./hf-cache:/models/hf
+      - ./base:/models/base:ro
+      - ./upstream/CAD-Editor:/opt/cad-editor:ro
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 6
+      start_period: 10m
+
+  cad-coder:
+    build:
+      context: ./cad-coder
+      dockerfile: Dockerfile
+    image: cadam/cad-coder:gb10
+    gpus: all
+    shm_size: 16gb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18081:8000"
+    volumes:
+      - ./hf-cache:/models/hf
+      - ./upstream/CAD-Coder:/opt/cad-coder:ro
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 6
+      start_period: 10m
+
+  cad-planner:
+    profiles: ["gated"]
+    build:
+      context: ./cad-planner
+      dockerfile: Dockerfile
+    image: cadam/cad-planner:gb10
+    gpus: all
+    shm_size: 16gb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18085:8000"
+    volumes:
+      - ./hf-cache:/models/hf
+      - ./base:/models/base:ro
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 6
+      start_period: 10m

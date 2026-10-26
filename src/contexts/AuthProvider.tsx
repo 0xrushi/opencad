@@ -18,6 +18,28 @@ function getAppRedirectUrl(path: string) {
   return `${window.location.origin}${basePath}${path}`;
 }
 
+// Open instance: everyone shares one guest account, so no sign-in is needed.
+const GUEST_EMAIL = 'guest@cadam.local';
+const GUEST_PASSWORD = 'cadam-open-guest';
+
+async function ensureGuestSession() {
+  const signIn = () =>
+    supabase.auth.signInWithPassword({
+      email: GUEST_EMAIL,
+      password: GUEST_PASSWORD,
+    });
+  let { data, error } = await signIn();
+  if (error) {
+    await supabase.auth.signUp({
+      email: GUEST_EMAIL,
+      password: GUEST_PASSWORD,
+      options: { data: { full_name: 'Guest' } },
+    });
+    ({ data, error } = await signIn());
+  }
+  return error ? null : data.session;
+}
+
 const LOCAL_BILLING_STATUS: BillingStatus = {
   user: { hasTrialed: false },
   subscription: {
@@ -82,9 +104,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const {
+        let {
           data: { session },
         } = await supabase.auth.refreshSession();
+        if (!session) session = await ensureGuestSession();
         setSession(session);
         localStorage.setItem('session', JSON.stringify(session));
         setUser(session?.user ?? null);
