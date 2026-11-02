@@ -125,12 +125,16 @@ type Vec3 = [number, number, number];
 export type CadProfile = {
   origin: Vec3;
   normal: Vec3;
-  profile: 'circle' | 'rect' | 'slot';
+  profile: 'circle' | 'rect' | 'slot' | 'polygon' | 'ellipse' | 'rounded_rect' | 'star';
   diameter?: number;
-  /** Rectangle width, or the overall length of a slot. */
+  /** Rectangle width, a slot's length, a polygon's distance across flats, or a star's outer diameter. */
   width?: number;
   /** Rectangle height, or the width of a slot. */
   height?: number;
+  /** Polygon sides or star points. */
+  sides?: number;
+  /** Corner radius of a rounded rectangle. */
+  radius?: number;
   /** Degrees about the face normal. */
   rotation?: number;
 };

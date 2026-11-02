@@ -85,6 +85,16 @@ export default function LocalCadEditor() {
   const [text, setText] = useState('');
   const [image, setImage] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [provider, setProvider] = useState<'cad-plaintext' | 'claude-code'>(() => {
+    try {
+      return localStorage.getItem('cadam.cadProvider') === 'claude-code' ? 'claude-code' : 'cad-plaintext';
+    } catch {
+      return 'cad-plaintext';
+    }
+  });
+  // generate() runs from an effect; a ref keeps it from re-firing when the choice changes.
+  const providerRef = useRef(provider);
+  providerRef.current = provider;
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [renderResult, setRenderResult] = useState<RenderResult | null>(null);
@@ -278,7 +288,7 @@ export default function LocalCadEditor() {
       try {
         await apiJson('local-cad', {
           method: 'POST',
-          body: JSON.stringify({ conversationId: conversation.id }),
+          body: JSON.stringify({ conversationId: conversation.id, provider: providerRef.current }),
         });
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['messages', conversation.id] }),
@@ -706,7 +716,7 @@ export default function LocalCadEditor() {
     const url = URL.createObjectURL(new Blob([activeArtifact.source], { type: 'text/plain' }));
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `cadam-${activeMessage?.id ?? 'model'}.${extension}`;
+    anchor.download = `opencad-${activeMessage?.id ?? 'model'}.${extension}`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -718,7 +728,7 @@ export default function LocalCadEditor() {
     const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `cadam-${activeMessage?.id ?? 'model'}.${format}`;
+    anchor.download = `opencad-${activeMessage?.id ?? 'model'}.${format}`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -785,7 +795,7 @@ export default function LocalCadEditor() {
             return (
               <div key={message.id} className="rounded-xl bg-adam-neutral-800 p-3 text-sm">
                 <div className="mb-1 text-xs font-medium text-adam-text-secondary">
-                  {message.role === 'user' ? 'You' : 'CADAM'}
+                  {message.role === 'user' ? 'You' : 'OpenCAD'}
                 </div>
                 {body && <p className="whitespace-pre-wrap">{body}</p>}
                 {asParametricParts(message.parts).some((part) => part.type === 'file') && (
@@ -1042,6 +1052,27 @@ export default function LocalCadEditor() {
             onChange={(event) => setText(event.target.value)}
             disabled={busy}
           />
+          <div className="flex items-center gap-2 text-xs text-adam-text-secondary">
+            <label htmlFor="cad-provider">Model</label>
+            <select
+              id="cad-provider"
+              className="rounded-md border border-adam-neutral-600 bg-adam-neutral-800 px-2 py-1 text-adam-text-primary outline-none disabled:opacity-50"
+              value={provider}
+              disabled={busy}
+              onChange={(event) => {
+                const next = event.target.value === 'claude-code' ? 'claude-code' : 'cad-plaintext';
+                setProvider(next);
+                try {
+                  localStorage.setItem('cadam.cadProvider', next);
+                } catch {
+                  // Remembering the choice is a convenience only.
+                }
+              }}
+            >
+              <option value="cad-plaintext">cad-plaintext (self-hosted)</option>
+              <option value="claude-code">Claude Code (local CLI)</option>
+            </select>
+          </div>
           <div className="flex items-center gap-3">
             <label
               className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-adam-neutral-600 hover:bg-adam-neutral-700"

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300">
+  <rect width="1200" height="300" fill="#f6f7f9"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <text x="70" y="150" font-size="88" font-weight="700" fill="#0d1117" letter-spacing="-1">OpenCAD</text>
+    <text x="72" y="200" font-size="26" fill="#30363d">Text to CAD with open, self-hosted models</text>
+    <text x="72" y="238" font-size="20" fill="#57606a">CadQuery solids · exact edits · STEP / STL</text>
+  </g>
+  <!-- isometric cube with a hole through the top face -->
+  <polygon points="900,55 990,102 900,149 810,102" fill="#5fb4ee"/>
+  <polygon points="810,102 900,149 900,249 810,202" fill="#2b7fc4"/>
+  <polygon points="900,149 990,102 990,202 900,249" fill="#1d5f99"/>
+  <ellipse cx="900" cy="102" rx="28" ry="15" fill="#f6f7f9"/>
+  <ellipse cx="900" cy="104" rx="28" ry="15" fill="none" stroke="#1d5f99" stroke-width="2" opacity="0.6"/>
+</svg>

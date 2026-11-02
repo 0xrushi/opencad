@@ -315,6 +315,8 @@ function describeEdge(
 }
 
 function fmt(value: number) {
+  // Float noise such as -2.2e-16 prints in exponent form and confuses the planner model.
+  if (Math.abs(value) < 1e-6) return 0;
   return Number(value.toPrecision(4));
 }
 

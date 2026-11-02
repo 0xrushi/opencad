@@ -7,7 +7,7 @@ const assetUrl = (path: string) =>
 
 export const Route = createRootRoute({
   head: () => ({
-    meta: [{ title: 'CADAM' }],
+    meta: [{ title: 'OpenCAD' }],
     links: [{ rel: 'stylesheet', href: appCss }],
   }),
   component: RootComponent,

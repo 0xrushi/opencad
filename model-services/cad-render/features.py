@@ -53,6 +53,29 @@ def _profile(cq, plane, op):
     """The 2D outline of a pocket or boss on `plane`."""
     kind = op.get("profile") or "circle"
     wp = cq.Workplane(plane)
+    if kind == "polygon":
+        # `width` is the distance across the flats; `sides` is the number of sides.
+        sides = op.get("sides")
+        if not isinstance(sides, int) or not 3 <= sides <= 64:
+            raise ValueError("a polygon needs a whole number of sides from 3 to 64")
+        if not op.get("width"):
+            raise ValueError("a polygon needs a width (across the flats)")
+        return wp.polygon(sides, op["width"], circumscribed=True)
+    if kind == "star":
+        # `width` is the outer diameter; `sides` is the number of points.
+        points = op.get("sides")
+        if not isinstance(points, int) or not 3 <= points <= 64:
+            raise ValueError("a star needs a whole number of points from 3 to 64")
+        if not op.get("width"):
+            raise ValueError("a star needs a width (outer diameter)")
+        outer = op["width"] / 2
+        inner = outer * 0.45
+        outline = []
+        for i in range(points * 2):
+            radius = outer if i % 2 == 0 else inner
+            angle = math.pi / 2 + i * math.pi / points
+            outline.append((radius * math.cos(angle), radius * math.sin(angle)))
+        return wp.polyline(outline).close()
     if kind == "circle":
         if not op.get("diameter"):
             raise ValueError("a round pocket or boss needs a diameter")
@@ -63,6 +86,15 @@ def _profile(cq, plane, op):
     height = op.get("height") or width
     if kind == "rect":
         return wp.rect(width, height)
+    if kind == "ellipse":
+        return wp.ellipse(width / 2, height / 2)
+    if kind == "rounded_rect":
+        radius = op.get("radius")
+        if not radius:
+            raise ValueError("a rounded rectangle needs a corner radius")
+        if radius * 2 >= min(width, height):
+            raise ValueError("the corner radius must be less than half the shorter side")
+        return wp.sketch().rect(width, height).vertices().fillet(radius).finalize()
     if kind == "slot":
         # `width` is the slot's overall length, `height` its width.
         if height > width:
@@ -72,7 +104,7 @@ def _profile(cq, plane, op):
 
 
 def op_pocket(shape, op):
-    """Cut a rectangle, circle or slot into a face, down against its outward normal."""
+    """Cut a rectangle, circle, slot, polygon, ellipse, rounded rectangle or star into a face, down against its outward normal."""
     solid, cq = _single(shape)
     _require_on_part(solid, cq, op["origin"], "pocket")
     size = solid.BoundingBox().DiagonalLength
@@ -88,7 +120,7 @@ def op_pocket(shape, op):
 
 
 def op_boss(shape, op):
-    """Add a rectangle, circle or slot standing out of a face along its outward normal."""
+    """Add a rectangle, circle, slot, polygon, ellipse, rounded rectangle or star standing out of a face along its outward normal."""
     solid, cq = _single(shape)
     _require_on_part(solid, cq, op["origin"], "boss")
     size = solid.BoundingBox().DiagonalLength

@@ -52,9 +52,10 @@ OPERATIONS (numbers are in model units; the part size is given):
 {"op":"hole","face":REF,"diameter":QTY,"depth":number|null,"at":POINT}   round hole (at the face centre unless "at" is given), depth null = through
   optional: "style":"counterbore"|"countersink" with "head_diameter","head_depth" (counterbore) or "angle" (countersink, default 90);
   or give "metric":"M3","fit":"clearance"|"tap" instead of "diameter" when the request names a screw size (standard head sizes are used)
-{"op":"pocket","face":REF,"at":POINT,"profile":PROFILE,"depth":number|null,"rotation":deg}  cut a rectangle/circle/slot into a face (depth null = through)
-{"op":"boss","face":REF,"at":POINT,"profile":PROFILE,"height":number,"rotation":deg}  raise a rectangle/circle/slot out of a face
-  PROFILE: {"shape":"rect","width":w,"height":h} | {"shape":"circle","diameter":d} | {"shape":"slot","width":length,"height":slot width}
+{"op":"pocket","face":REF,"at":POINT,"profile":PROFILE,"depth":number|null,"rotation":deg}  cut a rectangle/circle/slot/polygon/ellipse/rounded_rect/star into a face (depth null = through)
+{"op":"boss","face":REF,"at":POINT,"profile":PROFILE,"height":number,"rotation":deg}  raise a rectangle/circle/slot/polygon/ellipse/rounded_rect/star out of a face
+  PROFILE: {"shape":"rect","width":w,"height":h} | {"shape":"circle","diameter":d} | {"shape":"slot","width":length,"height":slot width} | {"shape":"polygon","sides":n,"width":distance across flats} | {"shape":"ellipse","width":w,"height":h} | {"shape":"rounded_rect","width":w,"height":h,"radius":corner radius} | {"shape":"star","sides":points,"width":outer diameter}
+  hexagon = polygon with sides 6, pentagon 5, octagon 8, triangle 3. Never use "hexagon" as a shape name.
 {"op":"text","face":REF,"at":POINT,"text":"quoted from request","size":number,"depth":number,"mode":"emboss"|"engrave"}
 {"op":"pattern","of":HOLE|POCKET|BOSS|TEXT op,"kind":"linear","count":n,"spacing":d,"direction":"+X"|{"edge":REF}}  repeat it in a line
 {"op":"pattern","of":...,"kind":"circular","count":n,"around":"x"|"y"|"z"|REF,"angle":deg}  repeat it around an axis or a round hole/boss
@@ -190,6 +191,22 @@ EXAMPLES = [
     (
         "Part size 40. Selected: F2 planar face facing +Z, centre (0,0,5).\nRequest: cut a 10 by 6 rectangular pocket 3 deep in the selected face",
         {"intent": "ops", "message": "", "ops": [{"op": "pocket", "face": "F2", "profile": {"shape": "rect", "width": 10, "height": 6}, "depth": 3}]},
+    ),
+    (
+        "Part size 40. Selected: F2 planar face facing +Z, centre (0,0,5).\nRequest: cut a hexagonal pocket 8 across the flats and 3 deep in the selected face",
+        {"intent": "ops", "message": "", "ops": [{"op": "pocket", "face": "F2", "profile": {"shape": "polygon", "sides": 6, "width": 8}, "depth": 3}]},
+    ),
+    (
+        "Part size 40. Selected: F2 planar face facing +Z.\nRequest: cut a 5 point star 12 across, 2 deep, into the selected face",
+        {"intent": "ops", "message": "", "ops": [{"op": "pocket", "face": "F2", "profile": {"shape": "star", "sides": 5, "width": 12}, "depth": 2}]},
+    ),
+    (
+        "Part size 40. Selected: F2 planar face facing +Z.\nRequest: raise an oval boss 10 by 6 and 3 tall on the selected face",
+        {"intent": "ops", "message": "", "ops": [{"op": "boss", "face": "F2", "profile": {"shape": "ellipse", "width": 10, "height": 6}, "height": 3}]},
+    ),
+    (
+        "Part size 40. Selected: F2 planar face facing +Z.\nRequest: cut a 12 by 8 rectangular pocket with 2 radius corners, 3 deep",
+        {"intent": "ops", "message": "", "ops": [{"op": "pocket", "face": "F2", "profile": {"shape": "rounded_rect", "width": 12, "height": 8, "radius": 2}, "depth": 3}]},
     ),
     (
         "Part size 40. Selected: F2 planar face facing +Z.\nRequest: add a round boss 6 wide and 4 tall on the selected face",
@@ -424,7 +441,7 @@ SYNONYMS = {
     "holes": "hole", "screw": "hole", "bolt": "hole",
     "delete": "remove", "erase": "remove", "eliminate": "remove", "scrap": "remove",
     "pull": "move", "push": "move", "raise": "emboss", "engrave": "emboss", "text": "emboss", "word": "emboss",
-    "pillar": "boss", "post": "boss", "stud": "boss", "slot": "pocket", "recess": "pocket", "pocket": "pocket",
+    "pillar": "boss", "post": "boss", "stud": "boss", "hexagon": "polygon", "hexagonal": "polygon", "hex": "polygon", "pentagon": "polygon", "octagon": "polygon", "triangle": "polygon", "oval": "ellipse", "elliptical": "ellipse", "rounded": "rounded_rect", "slot": "pocket", "recess": "pocket", "pocket": "pocket",
     "copies": "pattern", "repeat": "pattern", "array": "pattern", "hollow": "shell", "gusset": "rib", "support": "rib",
 }
 
@@ -532,14 +549,35 @@ def is_point(through: Any) -> bool:
     )
 
 
+SIDE_WORDS = {
+    "triangle": 3, "triangular": 3, "pentagon": 5, "pentagonal": 5, "hexagon": 6, "hexagonal": 6,
+    "heptagon": 7, "octagon": 8, "octagonal": 8, "nonagon": 9, "decagon": 10, "dodecagon": 12,
+}
+
+
+def check_sides(sides: Any) -> None:
+    """A side/point count must be a whole number the request names (a shape word or a figure)."""
+    if not number(sides) or int(sides) != sides or not 3 <= sides <= 64:
+        raise ValueError("sides must be a whole number from 3 to 64")
+    text = SOURCE["text"].lower()
+    named = {n for word, n in SIDE_WORDS.items() if re.search(rf"\b{word}\b", text)}
+    named |= {int(g) for g in GIVEN if float(g).is_integer()}
+    if sides not in named:
+        raise ValueError(f"sides {int(sides)} is not named in the request; use one of {sorted(named)}")
+
+
 def check_profile(profile: Any) -> None:
     shape = profile.get("shape") if isinstance(profile, dict) else None
     if shape == "circle":
         keys = ("diameter",)
-    elif shape in ("rect", "slot"):
+    elif shape in ("rect", "slot", "polygon", "star"):
         keys = ("width", "height") if shape == "slot" else ("width",)
+    elif shape in ("ellipse", "rounded_rect"):
+        keys = ("width", "height") + (("radius",) if shape == "rounded_rect" else ())
     else:
-        raise ValueError("profile shape must be rect, circle or slot")
+        raise ValueError("profile shape must be rect, circle, slot, polygon, ellipse, rounded_rect or star")
+    if shape in ("polygon", "star"):
+        check_sides(profile.get("sides"))
     for key in keys:
         if not number(profile.get(key)) or profile[key] <= 0:
             raise ValueError(f"profile needs a positive {key}")

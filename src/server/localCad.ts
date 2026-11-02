@@ -5,6 +5,12 @@ import type { Message } from '@shared/types';
 import { json, methodNotAllowed, preflight } from './api';
 import { artifactOps } from '@shared/cadOps';
 import { env } from './env';
+import {
+  CLAUDE_CODE_MODEL_ID,
+  generateWithClaudeCode,
+  parseProvider,
+} from './localCadClaude';
+import { editCadSequence, generateCadSequence, llmConfigured, llmModelId } from './localCadLlm';
 import { requestRender, type LoadFile, type LoadVersion } from './localCadRender';
 import { getAnonSupabaseClient } from './supabaseClient';
 
@@ -110,6 +116,9 @@ export async function handleLocalCadRequest(request: Request): Promise<Response>
     .overrideTypes<Message[]>();
   if (rowsError || !rows) return json({ error: 'Could not load messages' }, 500);
 
+  const provider = parseProvider(
+    body && typeof body === 'object' && 'provider' in body ? body.provider : null,
+  );
   const leaf = rows.find((row) => row.id === conversation.current_message_leaf_id);
   if (!leaf || leaf.role !== 'user') {
     return json({ error: 'No user request is pending' }, 409);
@@ -195,26 +204,63 @@ export async function handleLocalCadRequest(request: Request): Promise<Response>
         title: headline.slice(0, 80) || 'Image reconstruction',
         version: 'v1',
       };
+    } else if (
+      provider === 'claude-code' &&
+      (!previous || previous.sourceFormat === 'cad-sequence' || previous.sourceFormat === 'cadquery')
+    ) {
+      if (!instruction) return json({ error: 'Enter a CAD description' }, 400);
+      artifact = {
+        sourceFormat: 'cadquery',
+        source: await generateWithClaudeCode(
+          instruction,
+          previous && 'source' in previous ? previous : undefined,
+        ),
+        modelId: CLAUDE_CODE_MODEL_ID,
+        title: headline.slice(0, 80) || previous?.title || 'Claude Code model',
+        version: 'v1',
+        // A command sequence is rebuilt from scratch, so its earlier ops (which point
+        // at that geometry) do not apply; ops on CadQuery source stay applied.
+        ...(previous?.sourceFormat === 'cadquery' && artifactOps(previous).length > 0
+          ? { ops: artifactOps(previous) }
+          : {}),
+      };
+      // Only keep code the renderer can build, so history never holds a broken model.
+      const check = await requestRender(artifact, loadFile, undefined, loadVersion);
+      if (!check.ok) {
+        return json({ error: `Claude Code's model did not build: ${check.error}` }, 422);
+      }
     } else if (previous?.sourceFormat === 'cad-sequence') {
       if (!instruction) return json({ error: 'Enter an edit instruction' }, 400);
-      const result = await callModel(endpoints.editor(), '/edit', {
-        original_sequence: previous.source,
-        instruction,
-      });
+      const useLlm = llmConfigured();
+      const edited = useLlm
+        ? await editCadSequence(instruction, previous.source)
+        : requiredOutput(
+            (
+              await callModel(endpoints.editor(), '/edit', {
+                original_sequence: previous.source,
+                instruction,
+              })
+            ).sequence,
+            'edited CAD sequence',
+          );
       artifact = {
         sourceFormat: 'cad-sequence',
-        source: requiredOutput(result.sequence, 'edited CAD sequence'),
-        modelId: 'microsoft/CAD-Editor',
+        source: edited,
+        modelId: useLlm ? llmModelId() : 'microsoft/CAD-Editor',
         title: headline.slice(0, 80),
         version: 'v1',
         // Earlier cuts and holes stay applied on top of the edited model.
         ...(artifactOps(previous).length > 0 ? { ops: artifactOps(previous) } : {}),
       };
-      if (artifact.ops) {
+      if (useLlm || artifact.ops) {
         const check = await requestRender(artifact, loadFile, undefined, loadVersion);
         if (!check.ok) {
           return json(
-            { error: `The edit no longer works with your earlier cuts or holes: ${check.error}` },
+            {
+              error: useLlm && !artifact.ops
+                ? `The model's edit did not produce a valid solid (${check.error}). Try rephrasing the instruction.`
+                : `The edit no longer works with your earlier cuts or holes: ${check.error}`,
+            },
             422,
           );
         }
@@ -231,16 +277,26 @@ export async function handleLocalCadRequest(request: Request): Promise<Response>
       );
     } else {
       if (!instruction) return json({ error: 'Enter a CAD description' }, 400);
-      const result = await callModel(endpoints.fusion(), '/generate', {
-        description: instruction,
-      });
-      artifact = {
-        sourceFormat: 'cad-sequence',
-        source: requiredOutput(result.sequence, 'CAD sequence'),
-        modelId: 'microsoft/CADFusion',
-        title: headline.slice(0, 80),
-        version: 'v1',
-      };
+      if (llmConfigured()) {
+        artifact = {
+          sourceFormat: 'cad-sequence',
+          source: await generateCadSequence(instruction),
+          modelId: llmModelId(),
+          title: headline.slice(0, 80),
+          version: 'v1',
+        };
+      } else {
+        const result = await callModel(endpoints.fusion(), '/generate', {
+          description: instruction,
+        });
+        artifact = {
+          sourceFormat: 'cad-sequence',
+          source: requiredOutput(result.sequence, 'CAD sequence'),
+          modelId: 'microsoft/CADFusion',
+          title: headline.slice(0, 80),
+          version: 'v1',
+        };
+      }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'CAD model failed';

@@ -28,10 +28,11 @@ class Op(BaseModel):
     points: list[list[float]] | None = Field(default=None, max_length=24)
     # Features: pocket/boss/text/rib/draft/pattern/shell and hole variants.
     normal2: list[float] | None = Field(default=None, min_length=3, max_length=3)
-    profile: Literal["circle", "rect", "slot"] | None = None
+    profile: Literal["circle", "rect", "slot", "polygon", "ellipse", "rounded_rect", "star"] | None = None
     width: float | None = Field(default=None, gt=0)
     height: float | None = Field(default=None, gt=0)
     rotation: float | None = None
+    sides: int | None = Field(default=None, ge=3, le=64)  # polygon sides / star points
     text: str | None = Field(default=None, max_length=80)
     size: float | None = Field(default=None, gt=0)
     thickness: float | None = Field(default=None, gt=0)

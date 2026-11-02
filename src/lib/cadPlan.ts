@@ -50,8 +50,10 @@ type PlanePlan =
   | { kind: 'offset'; base: PlanePlan; distance: number; direction: string };
 
 type SketchProfile = {
-  shape: 'rect' | 'circle' | 'slot';
+  shape: 'rect' | 'circle' | 'slot' | 'polygon' | 'ellipse' | 'rounded_rect' | 'star';
   width?: number;
+  sides?: number;
+  radius?: number;
   height?: number;
   diameter?: number;
 };
@@ -572,7 +574,7 @@ export function resolvePlan(
 
   const profileOf = (shape: SketchProfile) => {
     if (shape.shape === 'circle') return { profile: 'circle' as const, diameter: shape.diameter };
-    return { profile: shape.shape, width: shape.width, height: shape.height };
+    return { profile: shape.shape, width: shape.width, height: shape.height, sides: shape.sides, radius: shape.radius };
   };
 
   const holeOp = (step: HolePlan): Extract<CadOp, { type: 'hole' }> => {

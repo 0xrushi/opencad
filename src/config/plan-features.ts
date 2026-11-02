@@ -18,7 +18,7 @@ export const PLAN_FEATURES: Record<PlanLevel, PlanCopy> = {
     description: 'For regular use',
     features: [
       'All AI features',
-      'Tokens shared across CADAM, Onshape, and Fusion',
+      'Tokens shared across OpenCAD, Onshape, and Fusion',
     ],
   },
   pro: {
@@ -26,7 +26,7 @@ export const PLAN_FEATURES: Record<PlanLevel, PlanCopy> = {
     features: [
       'All AI features',
       'Priority support',
-      'Tokens shared across CADAM, Onshape, and Fusion',
+      'Tokens shared across OpenCAD, Onshape, and Fusion',
     ],
   },
   max: {
@@ -34,7 +34,7 @@ export const PLAN_FEATURES: Record<PlanLevel, PlanCopy> = {
     features: [
       'All AI features',
       'Priority support',
-      'Tokens shared across CADAM, Onshape, and Fusion',
+      'Tokens shared across OpenCAD, Onshape, and Fusion',
     ],
   },
 };
