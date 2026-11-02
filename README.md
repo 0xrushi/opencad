@@ -42,7 +42,7 @@
 
 ## 🔓 This fork: open, self-hosted models
 
-This fork runs on **open models you host** and builds real solids (STEP/STL) with CadQuery/OpenCascade. No hosted-model API key is needed.
+OpenCAD is a fork of [CADAM](https://github.com/Adam-CAD/CADAM). It runs on **open models you host** and builds real solids (STEP/STL) with CadQuery/OpenCascade. No hosted-model API key is needed.
 
 ### Services
 
